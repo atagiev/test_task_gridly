@@ -15,7 +15,7 @@ class GridlyDatabase(HttpClient):
         super().__init__(self._base_url, ('ApiKey', token))
 
     @cached_property
-    def database_grids(self) -> list[TableInfo]:
+    def _database_grids(self) -> list[TableInfo]:
         logger.info(f'Collecting tables for database {self._database_id}')
         tables = self.get('grids', params={'dbId': self._database_id})
         if isinstance(tables, dict) and (error := tables.get('error')):
@@ -45,11 +45,19 @@ class GridlyDatabase(HttpClient):
         return view_id
 
     def get_table(self, grid_name: str, view_name='Default view') -> GridlyTable | None:
-        if grid_name not in [grid.name for grid in self.database_grids]:
+        """
+        Get gridly table from database by name and view.
+        :param grid_name: Table name
+        :param view_name: View name
+        :return: GridlyTable of None if table doesn't exist
+        """
+        if grid_name not in [grid.name for grid in self._database_grids]:
             logger.error(f'Table {grid_name} not found in gridly')
             return None
-        filtered_grids = list(filter(lambda table: table.name == grid_name, self.database_grids))
-        assert filtered_grids, f'Table {grid_name} not found in gridly'
+        filtered_grids = list(filter(lambda table: table.name == grid_name, self._database_grids))
+        if len(filtered_grids) == 0:
+            logger.error(f'Table {grid_name} not found in gridly')
+            return None
         grid_id = filtered_grids[0].sheet_id
         view_id = self._get_view_id(view_name, grid_id)
         return GridlyTable(token=self._token, view_id=view_id, grid_id=grid_id)

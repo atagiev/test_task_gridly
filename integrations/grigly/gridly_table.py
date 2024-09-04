@@ -15,7 +15,13 @@ class GridlyTable(HttpClient):
         self._grid_id = grid_id
         super().__init__(self._base_url, ('ApiKey', token))
 
-    def get_row_by_key(self, primary_key, primary_key_name: str = 'Record ID'):
+    def get_row_by_key(self, primary_key: str, primary_key_name: str = 'Record ID') -> TableRow | None:
+        """
+        Get row contents by primary key.
+        :param primary_key: Primary key value (id of the row)
+        :param primary_key_name: Name of the column with primary key
+        :return:
+        """
         query = {'_recordId': {"=": primary_key}}
         query_string = json.dumps(query)
 
@@ -26,33 +32,33 @@ class GridlyTable(HttpClient):
 
         result = result[0]
 
-        keys = [primary_key_name] + [self.column_id_to_name[cell['columnId']] for cell in result['cells']]
+        keys = [primary_key_name] + [self._column_id_to_name[cell['columnId']] for cell in result['cells']]
         data = [result['id']] + [cell['value'] for cell in result['cells']]
 
         row = TableRow(keys=keys, data=data)
         return row
 
     @cached_property
-    def table_columns(self):
+    def _table_columns(self):
         response = self.get(f'grids/{self._grid_id}')
         columns = response.get('columns', [])
         return columns
 
     @cached_property
-    def column_name_to_id(self):
+    def _column_name_to_id(self):
 
         columns_dict = {}
 
-        for column in self.table_columns:
+        for column in self._table_columns:
             columns_dict[column['name']] = column['id']
 
         return columns_dict
 
     @cached_property
-    def column_id_to_name(self):
+    def _column_id_to_name(self):
         columns_dict = {}
 
-        for column in self.table_columns:
+        for column in self._table_columns:
             columns_dict[column['id']] = column['name']
 
         return columns_dict
@@ -64,7 +70,7 @@ class GridlyTable(HttpClient):
         }
 
         for key, value in row.to_dict().items():
-            if (column_id := self.column_name_to_id.get(key)) is not None:
+            if (column_id := self._column_name_to_id.get(key)) is not None:
                 data['cells'].append({
                     "columnId": column_id,
                     "value": value
@@ -74,9 +80,15 @@ class GridlyTable(HttpClient):
         return json.dumps([data])
 
     def create_row(self, row: TableRow):
+        """
+        Add new row to the gridly sheet
+        """
         self.post(f'views/{self._view_id}/records', data=self._prepare_row_request(row),
                   headers={'Content-Type': 'application/json'})
 
     def update_row(self, row: TableRow):
+        """
+        Update row in the gridly sheet
+        """
         self.patch(f'views/{self._view_id}/records', data=self._prepare_row_request(row),
                    headers={'Content-Type': 'application/json'})

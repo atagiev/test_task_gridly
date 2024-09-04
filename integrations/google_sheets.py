@@ -20,7 +20,7 @@ class GoogleSheets(HttpClient):
         super().__init__(base_url, auth=('Bearer', token))
 
     @cached_property
-    def spreadsheet_tables(self) -> list[TableInfo] | None:
+    def _spreadsheet_tables(self) -> list[TableInfo] | None:
         logger.info(f'Collecting sheets for spreadsheet {self._spreadsheet_id}')
         spreadsheet_info = self.get(self._spreadsheet_id)
         if error := spreadsheet_info.get('error'):
@@ -43,9 +43,12 @@ class GoogleSheets(HttpClient):
 
     @cached_property
     def table_names(self) -> list[str]:
-        if self.spreadsheet_tables is None:
+        """
+        Get sheet names in the spreadsheet
+        """
+        if self._spreadsheet_tables is None:
             return []
-        return [table.name for table in self.spreadsheet_tables]
+        return [table.name for table in self._spreadsheet_tables]
 
     def _download_sheet(self, sheet_id: str) -> Path:
         temporary_dir = Path.cwd() / 'tmp'
@@ -65,7 +68,12 @@ class GoogleSheets(HttpClient):
         return file_name
 
     def get_sheet_data(self, sheet_name: str) -> Iterator[list[str]]:
-        sheet_id = list(filter(lambda x: x.name == sheet_name, self.spreadsheet_tables))[0].sheet_id
+        """
+        Get sheet contents as a list of rows
+        :param sheet_name: name of the sheet
+        :return: iterator of rows
+        """
+        sheet_id = list(filter(lambda x: x.name == sheet_name, self._spreadsheet_tables))[0].sheet_id
         sheet_file = self._download_sheet(sheet_id)
         with open(sheet_file, newline='', encoding='utf-8') as sheet_content:
             reader = csv.reader(sheet_content, delimiter=',', quotechar='|')
