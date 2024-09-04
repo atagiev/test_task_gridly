@@ -13,9 +13,7 @@ def main():
 
     tables = config.tables_to_sync
 
-    tables_in_google = google_sheets.table_names
-
-    assert all(table in tables_in_google for table in tables), 'Some tables not found in Google Sheets'
+    assert all(table in google_sheets.table_names for table in tables), 'Some tables not found in Google Sheets'
 
     stats = Stats()
 
